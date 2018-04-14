@@ -1,0 +1,42 @@
+#!/usr/bin/env ruby
+
+ENV["BUNDLE_GEMFILE"] = File.join(__dir__, "Gemfile")
+require "bundler"
+Bundler.require
+
+class Cli
+  def run
+    req = decode_req($stdin.read)
+    res = process(req)
+    $stdout.write(encode_res(res))
+  end
+
+  def decode_req(req_pb)
+    Google::Protobuf::Compiler::CodeGeneratorRequest.decode(req_pb)
+  end
+
+  def encode_res(res)
+    res.to_proto
+  end
+
+  def process(req)
+    files = req.proto_file.each_with_object({}) do |f, ret|
+      ret[f.name] = f
+    end
+
+    res = Google::Protobuf::Compiler::CodeGeneratorResponse.new
+    req.file_to_generate.each do |fname|
+      f = files[fname]
+      out = fname + ".dump"
+      res.file << new_file(name: out, content: f.to_json)
+    end
+
+    res
+  end
+
+  def new_file(attrs)
+    Google::Protobuf::Compiler::CodeGeneratorResponse::File.new(attrs)
+  end
+end
+
+Cli.new.run
